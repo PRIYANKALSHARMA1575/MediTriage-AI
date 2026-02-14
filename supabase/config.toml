@@ -1,0 +1,7 @@
+project_id = "pctchdootmsppooaerxb"
+
+[functions.triage-ai]
+verify_jwt = false
+
+[functions.medical-chat]
+verify_jwt = false
