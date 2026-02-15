@@ -9,7 +9,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { UserPlus, Search, Mic, MicOff, Upload, FileText, X, Activity, MapPin } from 'lucide-react';
+import { UserPlus, Search, Mic, MicOff, Upload, FileText, X, Activity, MapPin, Globe } from 'lucide-react';
+
+import 'regenerator-runtime/runtime';
+import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
+import { useEffect } from 'react';
 
 interface PatientFormProps {
   onPatientCreated?: (patientId: string) => void;
@@ -45,8 +49,20 @@ export function PatientForm({ onPatientCreated, isParamedic = false }: PatientFo
     setEhrFile(null);
   };
   const [searchId, setSearchId] = useState('');
-  const [isListening, setIsListening] = useState(false);
+
+
+  const [baseSymptoms, setBaseSymptoms] = useState('');
+
+  const {
+    transcript,
+    listening,
+    resetTranscript,
+    browserSupportsSpeechRecognition
+  } = useSpeechRecognition();
+
+  const [language, setLanguage] = useState('en-US');
   const [loading, setLoading] = useState(false);
+
   const [form, setForm] = useState({
     patient_id: '',
     full_name: '',
@@ -244,28 +260,61 @@ export function PatientForm({ onPatientCreated, isParamedic = false }: PatientFo
     setForm(f => ({ ...f, patient_id: id }));
   };
 
-  const toggleVoiceInput = () => {
-    // Demo Mode: Autofill symptoms directly when button is clicked
-    if (form.patient_id === 'PT-0001') {
-      setForm(f => ({ ...f, symptoms: 'Severe pain in right knee following fall. Notable swelling and restricted range of motion. Patient unable to bear weight.' }));
-      toast.success('Orthopaedic symptoms captured (Demo Mode)');
-    } else if (form.patient_id === 'PT-0002') {
-      setForm(f => ({ ...f, symptoms: 'Suspected shoulder dislocation. Intense pain after slipping on ice. Visible deformity at joint.' }));
-      toast.success('Orthopaedic symptoms captured (Demo Mode)');
-    } else if (form.patient_id === 'PT-0003') {
-      setForm(f => ({ ...f, symptoms: 'Minor wrist sprain while playing badminton. Slight swelling, no deformity. Able to move fingers freely.' }));
-      toast.success('Low Severity Ortho symptoms captured (Demo Mode)');
-    } else if (isParamedic) {
-      setForm(f => ({ ...f, symptoms: 'Motorcycle accident. Skidded on wet road. Abrasion on left arm and leg. Severe pain in right ankle, possible fracture. Vitals stable.' }));
-      toast.success('Accident symptoms captured (Demo Mode)');
-    } else if (mode === 'new') {
-      setForm(f => ({ ...f, symptoms: 'Severe chest pain radiating to left arm and jaw, shortness of breath, excessive sweating, nausea, dizziness for 45 minutes.' }));
-      toast.success('Patient symptoms captured (Demo Mode)');
-    } else {
-      // Default demo: Karan Singh (Ortho)
-      setForm(f => ({ ...f, symptoms: 'Persistent lower back pain for 3 days, now radiating down to the left leg. Difficulty walking and sitting for long periods.' }));
-      toast.success('Orthopaedic symptoms captured (Demo Mode)');
+  // Sync transcript to form symptoms while listening
+  useEffect(() => {
+    if (listening) {
+      const spacer = baseSymptoms && !baseSymptoms.endsWith(' ') ? ' ' : '';
+      setForm(prev => ({
+        ...prev,
+        symptoms: baseSymptoms + spacer + transcript
+      }));
     }
+  }, [transcript, listening, baseSymptoms]);
+
+  // When listening stops, we don't need to do anything special as the form state 
+  // already holds the final text. We just verify.
+
+  const toggleVoiceInput = async () => {
+    if (!browserSupportsSpeechRecognition) {
+      toast.error('Browser does not support speech recognition. Try using Chrome or Edge.');
+      return;
+    }
+
+    if (listening) {
+      SpeechRecognition.stopListening();
+      toast.info('Voice input stopped.');
+    } else {
+      // Explicitly request microphone permission to ensure prompt appears
+      try {
+        console.log('Requesting microphone access...');
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log('Microphone access granted');
+
+        // Capture current text snapshot
+        setBaseSymptoms(form.symptoms);
+        resetTranscript();
+
+        await SpeechRecognition.startListening({ continuous: true, language });
+        toast.info(`Listening in ${getLanguageName(language)}...`);
+      } catch (err) {
+        console.error('Microphone permission or start error:', err);
+        toast.error('Microphone access denied or error starting. Please check browser settings.');
+      }
+    }
+  };
+
+  const getLanguageName = (code: string) => {
+    const langs: Record<string, string> = {
+      'en-US': 'English',
+      'ta-IN': 'Tamil',
+      'hi-IN': 'Hindi',
+      'es-ES': 'Spanish',
+      'fr-FR': 'French',
+      'te-IN': 'Telugu',
+      'ml-IN': 'Malayalam',
+      'kn-IN': 'Kannada'
+    };
+    return langs[code] || code;
   };
 
   const uploadDocument = async (file: File, patientId: string, documentType: string) => {
@@ -610,11 +659,29 @@ export function PatientForm({ onPatientCreated, isParamedic = false }: PatientFo
         <div><Label>Allergies</Label><Input placeholder="Penicillin, Aspirin (comma-separated)" value={form.allergies} onChange={e => setForm(f => ({ ...f, allergies: e.target.value }))} /></div>
 
         <div>
-          <Label className="flex items-center gap-2">
+          <Label className="flex items-center justify-between">
             Symptoms
-            <Button type="button" size="sm" variant={isListening ? 'destructive' : 'outline'} onClick={toggleVoiceInput}>
-              {isListening ? <><MicOff className="w-3 h-3 mr-1" /> Stop</> : <><Mic className="w-3 h-3 mr-1" /> Voice</>}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Select value={language} onValueChange={setLanguage}>
+                <SelectTrigger className="h-7 w-[110px] text-xs">
+                  <Globe className="w-3 h-3 mr-1" />
+                  <SelectValue placeholder="Language" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="en-US">English</SelectItem>
+                  <SelectItem value="ta-IN">Tamil (தமிழ்)</SelectItem>
+                  <SelectItem value="hi-IN">Hindi (हिंदी)</SelectItem>
+                  <SelectItem value="te-IN">Telugu (తెలుగు)</SelectItem>
+                  <SelectItem value="ml-IN">Malayalam (മലയാളം)</SelectItem>
+                  <SelectItem value="kn-IN">Kannada (ಕನ್ನಡ)</SelectItem>
+                  <SelectItem value="es-ES">Spanish</SelectItem>
+                  <SelectItem value="fr-FR">French</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button type="button" size="sm" variant={listening ? 'destructive' : 'outline'} onClick={toggleVoiceInput} className="h-7 text-xs">
+                {listening ? <><MicOff className="w-3 h-3 mr-1" /> Stop</> : <><Mic className="w-3 h-3 mr-1" /> Voice Input</>}
+              </Button>
+            </div>
           </Label>
           <Textarea
             placeholder="Describe patient symptoms... or use voice input"
