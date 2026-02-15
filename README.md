@@ -251,6 +251,7 @@ qwer1234
 
 ## 1️⃣ Clone Repository
 
+```bash
 git clone https://github.com/PRIYANKALSHARMA1575/MediTriage-AI.git
 
 cd MediTriage-AI
@@ -260,6 +261,7 @@ cd MediTriage-AI
 
 ## 2️⃣ Install Frontend Dependencies
 
+```bash
 npm install
 
 
@@ -267,6 +269,7 @@ npm install
 
 ## 3️⃣ Run Frontend
 
+```bash
 npm run dev
 
 
@@ -285,6 +288,7 @@ Open a **new terminal**:
 
 ##  For Windows
 
+```bash
 cd MediTriage-AI
 cd ai
 
@@ -299,6 +303,7 @@ python app.py
 
 ##  For Mac/Linux
 
+```bash
 cd MediTriage-AI
 cd ai
 
