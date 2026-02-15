@@ -318,6 +318,7 @@ AI API runs on:
 
 http://localhost:8000
 
+```
 
 ---
 
@@ -326,7 +327,9 @@ http://localhost:8000
 Create a `.env` file in root directory:
 
 VITE_SUPABASE_URL=your_supabase_url
+
 VITE_SUPABASE_ANON_KEY=your_supabase_key
+
 VITE_GEMINI_API_KEY=your_gemini_key
 
 
