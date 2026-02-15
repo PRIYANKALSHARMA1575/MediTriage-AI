@@ -22,3 +22,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment variables
+.env
+ai/.env
+
+# ML models
+*.pkl
+ai/model.pkl
+
+# Python cache
+__pycache__/
+
